@@ -1,0 +1,12 @@
+2026-06-22 22:19:41,545 [INFO]  [ETL] Iniciando el pipeline automatizado multifuente...
+2026-06-22 22:19:41,624 [INFO]  [EXTRACT] Dataset cargado exitosamente. Registros a procesar: 7929
+2026-06-22 22:19:42,476 [INFO] 📊 [TRANSFORM] Validación finalizada. Exitosos: 7929 | Errores omitidos: 0
+2026-06-22 22:19:42,538 [INFO] [LOAD] Datos persistidos exitosamente en la Base de Datos SQL (salud_mental.db).
+2026-06-22 23:05:30,166 [INFO]  [ETL] Iniciando el pipeline automatizado multifuente...
+2026-06-22 23:05:30,260 [INFO]  [EXTRACT] Dataset cargado exitosamente. Registros a procesar: 7929
+2026-06-22 23:05:31,215 [INFO] 📊 [TRANSFORM] Validación finalizada. Exitosos: 7929 | Errores omitidos: 0
+2026-06-22 23:05:31,273 [INFO] [LOAD] Datos persistidos exitosamente en la Base de Datos SQL (salud_mental.db).
+2026-06-22 23:30:51,687 [INFO]  [ETL] Iniciando el pipeline automatizado multifuente...
+2026-06-22 23:30:51,779 [INFO]  [EXTRACT] Dataset cargado exitosamente. Registros a procesar: 7929
+2026-06-22 23:30:52,543 [INFO] 📊 [TRANSFORM] Validación finalizada. Exitosos: 7929 | Errores omitidos: 0
+2026-06-22 23:30:52,694 [INFO] [LOAD] Datos persistidos exitosamente en la Base de Datos SQL (salud_mental.db).
