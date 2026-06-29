@@ -1,25 +1,27 @@
+import os
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 import requests
 
-# Configuración inicial de la página estilo corporativo extendido
 st.set_page_config(page_title="Dashboard Avanzado de Salud Mental", page_icon="🧠", layout="wide")
 
-# URL del endpoint general macro de tu API RESTful (FastAPI)
-API_URL = "http://127.0.0.1:8000/api/v1/metrics/macro"
+API_URL = os.getenv("API_URL", "http://127.0.0.1:8000/api/v1/metrics/macro")
 
 @st.cache_data(ttl=30)  # Caché dinámico de 30 segundos
 def cargar_datos_desde_api():
+    # Te mostrará una caja informativa azul en la web con la URL activa
+    st.info(f"Conectando a la API en: {API_URL}")
     try:
-        respuesta = requests.get(API_URL)
+        respuesta = requests.get(API_URL, timeout=5) # Añadimos un límite de tiempo de 5s
         if respuesta.status_code == 200:
             return pd.DataFrame(respuesta.json())
         else:
-            st.error(f"Error en la API: Código de estado {respuesta.status_code}")
+            st.error(f"❌ Error en la API: Código de estado {respuesta.status_code}")
             return pd.DataFrame()
-    except requests.exceptions.ConnectionError:
-        st.error("No se pudo conectar con la API RESTful. Asegúrate de levantar Uvicorn en el puerto 8000.")
+    except requests.exceptions.ConnectionError as e:
+        st.error(f"❌ Error de Conexión: No se pudo conectar con la API RESTful.")
+        st.sidebar.error(f"Revisa el contenedor de FastAPI. Detalles: {e}")
         return pd.DataFrame()
 
 def mostrar_dashboard():
@@ -46,7 +48,6 @@ def mostrar_dashboard():
     )
     
     # Simulación completa de 'marital' incluyendo Casado, Soltero, Divorciado y Desconocido
-    # Distribución matemática en base al ID para que sea consistente y balanceada
     def asignar_estado_civil(idx):
         if idx % 4 == 0:
             return 'Casado(a)'
@@ -71,7 +72,7 @@ def mostrar_dashboard():
         default=df_filtrado['Country'].unique()
     )
     
-    # Filtro 2: Estado Civil Completo (Heredado fielmente del dataset del banco)
+    # Filtro 2: Estado Civil Completo
     estado_civil_seleccionado = st.sidebar.multiselect(
         "Selecciona Estado Civil (Marital):",
         options=df_filtrado['Estado_Civil'].unique(),
@@ -111,7 +112,7 @@ def mostrar_dashboard():
         color_discrete_map={'Estable': '#2E7D32', 'Alerta Crítica': '#C62828'}
     )
     fig1.update_layout(xaxis=dict(tickmode='linear', tick0=1, dtick=1))
-    st.plotly_chart(fig1, use_container_width=True)
+    st.plotly_chart(fig1, width='stretch')
 
     st.markdown("---")
 
@@ -135,10 +136,10 @@ def mostrar_dashboard():
             barmode='group',
             color_discrete_map={'Estable': '#17A2B8', 'Requiere Intervención': '#FFC107'}
         )
-        st.plotly_chart(fig_trabajo, use_container_width=True)
+        st.plotly_chart(fig_trabajo, width='stretch')
 
     # =========================================================================
-    # GRÁFICO 3: CASADO, SOLTERO, DIVORCIADO Y DESCONOCIDO (¡COMPLETO!)
+    # GRÁFICO 3: CASADO, SOLTERO, DIVORCIADO Y DESCONOCIDO
     # =========================================================================
     with col_banco_der:
         st.subheader("👰🤵 3. Distribución por Estado Civil Completo vs Alertas")
@@ -155,7 +156,7 @@ def mostrar_dashboard():
             barmode='group',
             color_discrete_map={'Estable': '#A55EA5', 'Requiere Intervención': '#E15759'}
         )
-        st.plotly_chart(fig_civil, use_container_width=True)
+        st.plotly_chart(fig_civil, width='stretch')
 
     st.markdown("---")
 
@@ -163,7 +164,7 @@ def mostrar_dashboard():
     col_izq, col_der = st.columns(2)
 
     # =========================================================================
-    # GRÁFICO 4: DISPERSIÓN (Scatter Plot - Vista Gerencial Macro)
+    # GRÁFICO 4: DISPERSIÓN (Formato original completo sin recortes)
     # =========================================================================
     with col_izq:
         st.subheader("📈 4. Impacto del Estrés en la Productividad")
@@ -177,10 +178,10 @@ def mostrar_dashboard():
             opacity=0.6
         )
         fig2.update_layout(xaxis=dict(tickmode='linear', tick0=1, dtick=1))
-        st.plotly_chart(fig2, use_container_width=True)
+        st.plotly_chart(fig2, width='stretch')
 
     # =========================================================================
-    # GRÁFICO 5: HISTOGRAMA DE DISTRIBUCIÓN (Vista Operativa Analítica)
+    # GRÁFICO 5: HISTOGRAMA DE DISTRIBUCIÓN
     # =========================================================================
     with col_der:
         st.subheader("📉 5. Concentración de Alertas Críticas por Región")
@@ -194,13 +195,13 @@ def mostrar_dashboard():
             color_discrete_sequence=["#B71C1C"]
         )
         fig3.update_xaxes(categoryorder="total descending")
-        st.plotly_chart(fig3, use_container_width=True)
+        st.plotly_chart(fig3, width='stretch')
 
     st.markdown("---")
 
     # 5. Vista de tabla de datos brutos expandible al final
     with st.expander("📂 Inspeccionar registros granulares extraídos (Primeros 100 casos)"):
-        st.dataframe(df_filtrado.head(100), use_container_width=True)
+        st.dataframe(df_filtrado.head(100), width='stretch')
 
 if __name__ == "__main__":
     mostrar_dashboard()

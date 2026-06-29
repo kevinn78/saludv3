@@ -10,3 +10,7 @@
 2026-06-22 23:30:51,779 [INFO]  [EXTRACT] Dataset cargado exitosamente. Registros a procesar: 7929
 2026-06-22 23:30:52,543 [INFO] 📊 [TRANSFORM] Validación finalizada. Exitosos: 7929 | Errores omitidos: 0
 2026-06-22 23:30:52,694 [INFO] [LOAD] Datos persistidos exitosamente en la Base de Datos SQL (salud_mental.db).
+2026-06-28 20:48:24,090 [INFO]  [ETL] Iniciando el pipeline automatizado multifuente...
+2026-06-28 20:48:24,159 [INFO]  [EXTRACT] Dataset cargado exitosamente. Registros a procesar: 7929
+2026-06-28 20:48:24,931 [INFO] 📊 [TRANSFORM] Validación finalizada. Exitosos: 7929 | Errores omitidos: 0
+2026-06-28 20:48:25,007 [INFO] [LOAD] Datos persistidos exitosamente en la Base de Datos SQL (salud_mental.db).

@@ -13,8 +13,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Ruta absoluta hacia la base de datos relacional que tú generaste
-DB_PATH = os.path.join("data", "salud_mental.db")
+if os.path.exists("salud_mental.db"):
+    DB_PATH = "salud_mental.db"
+elif os.path.exists(os.path.join("data", "salud_mental.db")):
+    DB_PATH = os.path.join("data", "salud_mental.db")
+else:
+    DB_PATH = "/app/salud_mental.db"
 
 def ejecutar_consulta_db(query, args=()):
     if not os.path.exists(DB_PATH):
