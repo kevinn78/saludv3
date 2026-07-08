@@ -32,3 +32,14 @@ Abre una terminal (PowerShell o CMD) en la raíz de la carpeta del proyecto y ej
 ---
 
 arrancar.bat
+
+
+### Enlace del video:
+---
+
+##  Video de Exposición (Demo End-to-End)
+>  **FASE 3:**  
+
+>  **[https://drive.google.com/file/d/12c9XIl5_JDP15fLQpW3KNzP_CQBr_fdm/view?usp=sharing]** 
+
+
