@@ -1,6 +1,7 @@
 import os
 import sqlite3
 import joblib
+import pandas as pd  # 🚀 IMPORTACIÓN REQUERIDA PARA PASAR LA DATA AL PIPELINE
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -70,7 +71,7 @@ def obtener_casos_criticos():
     query = "SELECT age, stress_level, productivity_score, Country, mental_health_alert FROM alertas_salud_mental WHERE mental_health_alert = 1"
     return ejecutar_consulta_db(query)
 
-# --- ENDPOINTS PREDICTIVOS (INTELIGENCIA ARTIFICIAL) ---
+# --- ENDPOINTS PREDICTIVOS CORREGIDOS (CON DATA FRAMES DE PANDAS) ---
 
 @app.post("/api/v1/predict/alert")
 def predecir_alerta_salud(datos: DatosPrediccion):
@@ -80,10 +81,17 @@ def predecir_alerta_salud(datos: DatosPrediccion):
     
     try:
         modelo = joblib.load(PATH_CLASIFICADOR)
-        features = [[datos.age, datos.stress_level]]
         
-        prediccion = modelo.predict(features)[0]
-        probabilidad = modelo.predict_proba(features)[0][1] if hasattr(modelo, "predict_proba") else None
+        #  Construimos el DataFrame estructurado con todas las columnas del entrenamiento
+        df_input = pd.DataFrame([{
+            "age": int(datos.age),
+            "stress_level": int(datos.stress_level),
+            "productivity_score": 70.0,  # Valor neutro requerido por tu pipeline (features_clasificacion)
+            "Country": "Chile"           # País base que usará tu OneHotEncoder
+        }])
+        
+        prediccion = modelo.predict(df_input)[0]
+        probabilidad = modelo.predict_proba(df_input)[0][1] if hasattr(modelo, "predict_proba") else None
         
         return {
             "status": "success",
@@ -101,9 +109,15 @@ def predecir_score_productividad(datos: DatosPrediccion):
     
     try:
         modelo = joblib.load(PATH_REGRESOR)
-        features = [[datos.age, datos.stress_level]]
         
-        prediccion_continua = modelo.predict(features)[0]
+        # Construimos el DataFrame estructurado para la Regresión Lineal
+        df_input = pd.DataFrame([{
+            "age": int(datos.age),
+            "stress_level": int(datos.stress_level),
+            "Country": "Chile"  
+        }])
+        
+        prediccion_continua = modelo.predict(df_input)[0]
         
         return {
             "status": "success",

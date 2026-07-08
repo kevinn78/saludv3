@@ -1,130 +1,128 @@
 import os
 import sqlite3
-import pandas as pd
-import numpy as np
-from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
-from sklearn.compose import ColumnTransformer
-from sklearn.pipeline import Pipeline
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import (
-    classification_report, 
-    confusion_matrix, 
-    mean_squared_error, 
-    r2_score, 
-    precision_score, 
-    recall_score, 
-    f1_score
-)
 import joblib
+import pandas as pd
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
 
-# Configuración de rutas (híbrido local/Docker)
-DB_PATH = "/app/salud_mental.db" if os.path.exists("/app/salud_mental.db") else os.path.join("data", "salud_mental.db")
-MODELS_DIR = "models"
+app = FastAPI(title="API de Alertas de Salud Mental Organizacional")
 
-def cargar_datos():
-    """Conecta a la base de datos relacional y extrae la data en un DataFrame"""
+# Permitir que el Dashboard se conecte sin bloqueos de seguridad
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# --- CONFIGURACIÓN DE RUTAS DE BASE DE DATOS Y MODELOS ---
+if os.path.exists("salud_mental.db"):
+    DB_PATH = "salud_mental.db"
+elif os.path.exists(os.path.join("data", "salud_mental.db")):
+    DB_PATH = os.path.join("data", "salud_mental.db")
+else:
+    DB_PATH = "/app/salud_mental.db"
+
+if os.path.exists(os.path.join("models", "clasificador_alerta.joblib")):
+    PATH_CLASIFICADOR = os.path.join("models", "clasificador_alerta.joblib")
+    PATH_REGRESOR = os.path.join("models", "regresor_productividad.joblib")
+else:
+    PATH_CLASIFICADOR = "/app/models/clasificador_alerta.joblib"
+    PATH_REGRESOR = "/app/models/regresor_productividad.joblib"
+
+# --- ESQUEMAS PYDANTIC (VALIDACIÓN DE ENTRADA Y SALIDA) ---
+class DatosPrediccion(BaseModel):
+    age: int = Field(..., example=35, description="Edad del colaborador")
+    stress_level: int = Field(..., example=7, description="Nivel de estrés percibido (1-10)")
+
+class MetricasColaboradorOut(BaseModel):
+    age: int
+    stress_level: float
+    productivity_score: float
+    Country: str
+    mental_health_alert: int
+
+    class Config:
+        from_attributes = True 
+
+# --- FUNCIÓN AUXILIAR SQLITE ---
+def ejecutar_consulta_db(query, args=()):
     if not os.path.exists(DB_PATH):
-        raise FileNotFoundError(f"No se encontró la base de datos en: {DB_PATH}")
-    
+        raise HTTPException(status_code=500, detail="Base de datos relacional no encontrada.")
     conn = sqlite3.connect(DB_PATH)
-    # Extraemos las columnas necesarias para el análisis predictivo
-    query = "SELECT age, stress_level, productivity_score, Country, mental_health_alert FROM alertas_salud_mental"
-    df = pd.read_sql_query(query, conn)
+    conn.row_factory = sqlite3.Row 
+    cursor = conn.cursor()
+    cursor.execute(query, args)
+    resultados = cursor.fetchall()
     conn.close()
-    return df
+    return [dict(fila) for fila in resultados]
 
-def entrenar_ecosistema_ml():
-    print("Inicializando Pipeline de Machine Learning para Ciencia de Datos...")
-    df = cargar_datos()
-    
-    # -------------------------------------------------------------------------
-    # OPTIMIZACIÓN Y TRANSFORMACIONES AVANZADAS (Pandas Vectorizado)
-    # -------------------------------------------------------------------------
-    # Optimizamos el uso de memoria RAM convirtiendo tipos de datos nativos
-    df['Country'] = df['Country'].astype('category')
-    
-    # Definición de variables para los pipelines de Scikit-learn
-    features_clasificacion = ['age', 'stress_level', 'productivity_score', 'Country']
-    features_regresion = ['age', 'stress_level', 'Country'] # No incluimos productivity ya que es el target
-    
-    # Transformadores preprocesamiento (StandardScaler y OneHotEncoder)
-    preprocesamiento = ColumnTransformer(
-        transformers=[
-            ('num', StandardScaler(), ['age', 'stress_level']),
-            ('cat', OneHotEncoder(handle_unknown='ignore'), ['Country'])
-        ],
-        remainder='passthrough'
-    )
+# --- ENDPOINTS ANALÍTICOS (DESCRIPTIVOS) ---
 
-    # =========================================================================
-    # 1. MODELO DE CLASIFICACIÓN (Target: mental_health_alert)
-    # =========================================================================
-    print("\nEntrenando Modelo de Clasificación (Random Forest)...")
-    X_c = df[features_clasificacion]
-    y_c = df['mental_health_alert']
-    
-    X_train_c, X_test_c, y_train_c, y_test_c = train_test_split(X_c, y_c, test_size=0.2, random_state=42, stratify=y_c)
-    
-    pipeline_clasificador = Pipeline([
-        ('preprocesamiento', preprocesamiento),
-        ('modelo', RandomForestClassifier(random_state=42))
-    ])
-    
-    # Optimización de Hiperparámetros mediante Validación Cruzada (GridSearchCV)
-    parametros_c = {
-        'modelo__n_estimators': [50, 100],
-        'modelo__max_depth': [None, 10]
-    }
-    grid_c = GridSearchCV(pipeline_clasificador, parametros_c, cv=3, scoring='f1', n_jobs=-1)
-    grid_c.fit(X_train_c, y_train_c)
-    
-    # Evaluación del clasificador
-    pred_c = grid_c.predict(X_test_c)
-    print(" Clasificador entrenado con éxito.")
-    print("\n--- MÉTRICAS DE NEGOCIO (CLASIFICACIÓN) ---")
-    print(classification_report(y_test_c, pred_c))
-    print("Matriz de Confusión:")
-    print(confusion_matrix(y_test_c, pred_c))
-    
-    # Guardar modelo serializado
-    joblib.dump(grid_c.best_estimator_, os.path.join(MODELS_DIR, "clasificador_alerta.joblib"))
+@app.get("/api/v1/metrics/macro", response_model=list[MetricasColaboradorOut])
+def obtener_metricas_gerenciales():
+    """Endpoint optimizado para la Vista Gerencial Macro"""
+    query = "SELECT age, stress_level, productivity_score, Country, mental_health_alert FROM alertas_salud_mental"
+    return ejecutar_consulta_db(query)
 
-    # =========================================================================
-    # 2. MODELO DE REGRESIÓN (Target: productivity_score)
-    # =========================================================================
-    print("\nEntrenando Modelo de Regresión (Linear Regression)...")
-    # Para el preprocesamiento del regresor, ajustamos el ColumnTransformer para excluir columnas que no van
-    preprocesamiento_r = ColumnTransformer(
-        transformers=[
-            ('num', StandardScaler(), ['age', 'stress_level']),
-            ('cat', OneHotEncoder(handle_unknown='ignore'), ['Country'])
-        ]
-    )
-    
-    X_r = df[features_regresion]
-    y_r = df['productivity_score']
-    
-    X_train_r, X_test_r, y_train_r, y_test_r = train_test_split(X_r, y_r, test_size=0.2, random_state=42)
-    
-    pipeline_regresor = Pipeline([
-        ('preprocesamiento', preprocesamiento_r),
-        ('modelo', LinearRegression())
-    ])
-    
-    pipeline_regresor.fit(X_train_r, y_train_r)
-    
-    # Evaluación del regresor
-    pred_r = pipeline_regresor.predict(X_test_r)
-    print("✅ Regresor entrenado con éxito.")
-    print("\n📊 --- MÉTRICAS DE NEGOCIO (REGRESIÓN) ---")
-    print(f"MSE (Error Cuadrático Medio): {mean_squared_error(y_test_r, pred_r):.2f}")
-    print(f"R² (Coeficiente de Determinación): {r2_score(y_test_r, pred_r):.2f}")
-    
-    # Guardar modelo serializado
-    joblib.dump(pipeline_regresor, os.path.join(MODELS_DIR, "regresor_productividad.joblib"))
-    print("\n💾 ¡Modelos serializados correctamente en la carpeta /models/!")
+@app.get("/api/v1/alerts/critical", response_model=list[MetricasColaboradorOut])
+def obtener_casos_criticos():
+    """Endpoint optimizado para la Vista Operativa Granular (Recursos Humanos)"""
+    query = "SELECT age, stress_level, productivity_score, Country, mental_health_alert FROM alertas_salud_mental WHERE mental_health_alert = 1"
+    return ejecutar_consulta_db(query)
 
-if __name__ == "__main__":
-    entrenar_ecosistema_ml()
+# --- ENDPOINTS PREDICTIVOS (INTELIGENCIA ARTIFICIAL EN VIVO) ---
+
+@app.post("/api/v1/predict/alert")
+def predecir_alerta_salud(datos: DatosPrediccion):
+    """Endpoint que predice en tiempo real si un colaborador requiere alerta de salud mental (0 o 1)"""
+    if not os.path.exists(PATH_CLASIFICADOR):
+        raise HTTPException(status_code=500, detail="Modelo clasificador no encontrado. Ejecute entrenar.py primero.")
+    
+    try:
+        modelo = joblib.load(PATH_CLASIFICADOR)
+        
+        # DataFrame con los nombres exactos que exige el Pipeline del Clasificador
+        df_input = pd.DataFrame([{
+            "age": int(datos.age),
+            "stress_level": int(datos.stress_level),
+            "productivity_score": 70.0,  
+            "Country": "Chile"           
+        }])
+        
+        prediccion = modelo.predict(df_input)[0]
+        probabilidad = modelo.predict_proba(df_input)[0][1] if hasattr(modelo, "predict_proba") else None
+        
+        return {
+            "status": "success",
+            "mental_health_alert_prediction": int(prediccion),
+            "risk_probability": float(probabilidad) if probabilidad is not None else "N/A"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error durante la inferencia: {str(e)}")
+
+@app.post("/api/v1/predict/productivity")
+def predecir_score_productividad(datos: DatosPrediccion):
+    """Endpoint que predice el Score de Productividad numérico esperado de un colaborador"""
+    if not os.path.exists(PATH_REGRESOR):
+        raise HTTPException(status_code=500, detail="Modelo regresor no encontrado. Ejecute entrenar.py primero.")
+    
+    try:
+        modelo = joblib.load(PATH_REGRESOR)
+        
+        # DataFrame con los nombres exactos que exige el Pipeline del Regresor
+        df_input = pd.DataFrame([{
+            "age": int(datos.age),
+            "stress_level": int(datos.stress_level),
+            "Country": "Chile"  
+        }])
+        
+        prediccion_continua = modelo.predict(df_input)[0]
+        
+        return {
+            "status": "success",
+            "predicted_productivity_score": round(float(prediccion_continua), 2)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error durante la inferencia: {str(e)}")

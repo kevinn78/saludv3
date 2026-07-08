@@ -8,6 +8,7 @@ services:
     volumes:
       - ./data:/app/data
       - ./models:/app/models
+      - ./api:/app/api
     restart: always
 
   dashboard:
@@ -18,6 +19,8 @@ services:
       - "8501:8501"
     environment:
       - API_URL=http://api:8000/api/v1/metrics/macro
+    volumes:
+      - ./dashboards:/app/dashboards
     depends_on:
       - api
     restart: always
