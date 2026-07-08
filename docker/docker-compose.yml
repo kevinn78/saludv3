@@ -5,11 +5,9 @@ services:
       dockerfile: Dockerfile.api
     ports:
       - "8000:8000"
-    environment:
-      - ENV=production
     volumes:
-      # Enlazamos tu carpeta data local con la carpeta data del contenedor
       - ./data:/app/data
+      - ./models:/app/models
     restart: always
 
   dashboard:
